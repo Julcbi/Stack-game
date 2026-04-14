@@ -1,0 +1,36 @@
+body {
+  margin: 0px;
+  padding: 0px;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background-color: #101010;
+  cursor: crosshair;
+}
+
+html {
+  overflow-y: hidden; /* oder scroll */
+}
+
+canvas {
+  touch-action: none; /* Deaktiviert standardmäßige Touch-Aktionen */
+  user-select: none;  /* Verhindert, dass der Inhalt ausgewählt wird */
+  cursor: crosshair;
+}
+
+.center {
+  margin: 0;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+.btn {
+  width: 450px;
+  height: 250px;
+}
+
+#qrscan {
+  pointer-events: none;
+}

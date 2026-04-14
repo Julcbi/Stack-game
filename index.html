@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title>WIP</title>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="shortcut icon" type="image/png" href="favicon.png"/>
+  
+  <script  src="src/GameConfig.js"></script>
+  <script  src="src/game.js" type="module"></script>
+  
+  <!-- 3rd party libs -->
+  <script src="src/framework/phaser.3.80.min.js"></script>
+
+
+
+  <script >
+
+    window.onbeforeunload = function (e) {
+      // Save game before closing
+      try {
+        const gameScene = window.game?.scene?.scenes[0];
+        if (gameScene && gameScene.saveGame) {
+          gameScene.saveGame();
+        }
+      } catch (error) {
+        console.log("Could not save on close:", error);
+      }
+
+      e = e || window.event;
+      if (e) {
+        e.returnValue = '?';
+      }
+      return '?';
+    };
+  </script>
+
+</head>
+
+<body>
+
+  <div id="gameDiv"></div>
+
+</body>
+</html>
