@@ -5,6 +5,7 @@ var config = {
     type: Phaser.AUTO,
     scale: {
         mode: Phaser.Scale.FIT,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
         parent: 'gameDiv',
         width: width,
         height: height
