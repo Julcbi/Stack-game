@@ -8,13 +8,29 @@ export default class gameScene extends Phaser.Scene {
     init() {
         this.gameStarted = false;
 
-        this.blockSpeed = 300;
+        this.baseSpeed = 250;
+        this.speedStep = 50;
+        this.maxSpeed = 600;
+        this.blockSpeed = this.baseSpeed;
+        this.placedBlocks = 0;
+        this.speedUpEvery = 5;
+        this.speedUpAt = this.speedUpEvery;
         this.isBlockMoving = true;
+        this.stackBlocks = [];
+        this.blockScale = 1;
+        this.blockSpacing = 0;
+        this.baseBlockWidth = 300;
+        this.blockHeight = 60;
+        this.blockColor = 0xDB7093;
+        this.blockBorderColor = 0x3a2230;
+        this.blockBorderWidth = 3;
+        this.movementMargin = 250;
+        this.score = 0;
+        this.scoreText = null;
     }
 
     preload() {
-        this.load.image("gameBG", "assets/gameBG(PH).jpg");
-        this.load.image("block",  "assets/Block(PH).jpg")
+        this.load.image("gameBG", "assets/gameBG.jpg");
     }
 
     create() {
@@ -22,43 +38,217 @@ export default class gameScene extends Phaser.Scene {
 
         this.add.image(centerX, centerY, "gameBG").setDisplaySize(width, height);
 
-        this.add.image(centerX, height - 270, "block")
-            .setOrigin(0.5, 0.5)
-            .setScale(0.5);
+        /* const blockTexture = this.textures.get("block").getSourceImage();
 
-        this.movingBlock = this.add.image(centerX, height - 363, "block")
-            .setOrigin(0.5, 0.5)
-            .setScale(0.5);
+        this.baseBlockWidth = blockTexture.width;
+        this.blockHeight = blockTexture.height; */
+
+        const baseBlock = this.createBlock(centerX, height - 100, this.baseBlockWidth);
+           
+        this.blockSpacing = this.blockHeight;
+        this.stackBlocks.push(baseBlock);
+
+        this.spawnMovingBlock();
+        this.scoreText = this.add.text(40, 40, "Score: 0", {
+            fontSize: "36px",
+            color: "#ffffff",
+        }).setDepth(10);
 
         this.input.on("pointerdown", this.stopMovingBlock, this);
         this.input.keyboard.on("keydown-SPACE", this.stopMovingBlock, this);
-
-        this.add.text(centerX, centerY, "Clean scene: ready for new logic", {
-            fontSize: "32px",
-            color: "#ffffff",
-        }).setOrigin(0.5);
     }
 
     stopMovingBlock() {
-        if (!this.isBlockMoving) {
+        if (!this.isBlockMoving || !this.movingBlock) {
             return;
         }
 
+        const moveDirection = this.blockSpeed >= 0 ? 1 : -1;
+
         this.isBlockMoving = false;
         this.blockSpeed = 0;
+
+        const topBlock = this.stackBlocks[this.stackBlocks.length - 1];
+        const overlapData = this.getOverlapData(topBlock, this.movingBlock);
+        
+        if (overlapData.overlapWidth <= 0) {
+            this.gameOver();
+            return;
+        }
+
+        if (overlapData.cutWidth > 0) {
+            this.createFallingPiece(overlapData);
+        }
+
+        this.addPointsForHit(topBlock, overlapData);
+
+        const placeBlock = this.createBlock(
+            overlapData.overlapCenterX,
+            this.movingBlock.y,
+            overlapData.overlapWidth
+        );
+
+        this.movingBlock.destroy();
+        this.stackBlocks.push(placeBlock);
+        this.placedBlocks += 1;
+
+        if (this.placedBlocks >= this.speedUpAt) {
+            this.baseSpeed = Math.min(this.baseSpeed + this.speedStep, this.maxSpeed);
+            this.speedUpAt += this.speedUpEvery;
+        }
+
+        this.spawnMovingBlock();
+        this.scrollStack();
+
+        this.blockSpeed = this.baseSpeed * moveDirection;
+        this.isBlockMoving = true;
+    }
+
+    createBlock(x, y, blockWidth) {
+        return this.add.rectangle(x, y, blockWidth, this.blockHeight, this.blockColor)
+            .setOrigin(0.5, 0.5)
+            .setStrokeStyle(this.blockBorderWidth, this.blockBorderColor, 1);
+    }
+
+    spawnMovingBlock() {
+        const topBlock = this.stackBlocks[this.stackBlocks.length - 1];
+
+        this.movingBlock = this.createBlock(centerX, topBlock.y - this.blockSpacing, topBlock.width);
+    }
+
+    scrollStack() {
+        const topBlock = this.stackBlocks[this.stackBlocks.length - 1];
+
+        if (topBlock.y > height * 0.5) {
+            return;
+        }
+
+        const targets = [...this.stackBlocks, this.movingBlock];
+
+        this.tweens.add({
+            targets,
+            y: "+=" + this.blockSpacing,
+            duration: 150,
+            ease: "Linear",
+        });
+    }
+
+
+    addPointsForHit(baseBlock, overlapData) {
+        const accuracy = overlapData.overlapWidth / baseBlock.displayWidth;
+        const sizeRatio = overlapData.overlapWidth / this.baseBlockWidth;
+
+        let tierPoints = 0;
+
+        if (accuracy >= 0.98) {
+            tierPoints = 120;
+        } else if (accuracy >= 0.90) {
+            tierPoints = 80;
+        } else if (accuracy >= 0.80) {
+            tierPoints = 50;
+        } else if (accuracy >= 0.60) {
+            tierPoints = 25;
+        } else {
+            tierPoints = 10;
+        }
+
+        // Smaller block = higher multiplier (harder to land)
+        const difficultyBonus = Phaser.Math.Clamp(1 + (1 - sizeRatio) * 3, 1, 4);
+        const gained = Math.round(tierPoints * difficultyBonus);
+
+        this.score += gained;
+        this.scoreText.setText("Score: " + this.score);
+    }
+
+    getOverlapData(baseBlock, movingBlock) {
+        const baseLeft = this.getBlockLeft(baseBlock);
+        const baseRight = this.getBlockRight(baseBlock);
+        const movingLeft = this.getBlockLeft(movingBlock);
+        const movingRight = this.getBlockRight(movingBlock);
+
+        const overlapLeft = Math.max(baseLeft, movingLeft);
+        const overlapRight = Math.min(baseRight, movingRight);
+        const overlapWidth = overlapRight - overlapLeft;
+        const cutWidth = movingBlock.displayWidth - overlapWidth;
+        const overlapCenterX = overlapLeft + (overlapWidth / 2);
+
+        let cutCenterX = movingBlock.x;
+
+        if (cutWidth > 0) {
+            cutCenterX = movingBlock.x > baseBlock.x
+                ? overlapRight + (cutWidth / 2)
+                : overlapLeft - (cutWidth / 2);
+        }
+
+        return {
+            overlapWidth,
+            overlapCenterX,
+            cutWidth,
+            cutCenterX,
+            y: movingBlock.y,
+        };
+    }
+
+    getBlockLeft(block) {
+        return block.x - (block.displayWidth / 2);
+    }
+
+    getBlockRight(block) {
+        return block.x + (block.displayWidth / 2);
+    }
+
+    createFallingPiece(overlapData) {
+        const cutPiece = this.createBlock(
+            overlapData.cutCenterX,
+            overlapData.y,
+            overlapData.cutWidth,
+        );
+
+        this.tweens.add({
+            targets: cutPiece,
+            y: cutPiece.y + 250,
+            angle: overlapData.cutCenterX > overlapData.overlapCenterX ? 18 : -18,
+            alpha: 0,
+            duration: 450,
+            onComplete: () => cutPiece.destroy(),
+        });
+    }
+
+    gameOver() {
+        this.gameStarted = false;
+        this.isBlockMoving = false;
+
+        if (this.movingBlock) {
+            this.movingBlock.destroy();
+            this.movingBlock = null;
+        }
+
+        this.add.text(centerX, 120, "Game Over", {
+            fontSize: "48px",
+            color: "#ffffff",
+        }).setOrigin(0.5).setDepth(10);
+
+        this.add.text(centerX, 185, "Final Score: " + this.score, {
+            fontSize: "34px",
+            color: "#ffdd57",
+        }).setOrigin(0.5).setDepth(10);
     }
 
     update(time, delta) {
-        if (!this.isBlockMoving) {
+        if (!this.isBlockMoving || !this.movingBlock) {
             return;
         }
 
         this.movingBlock.x += this.blockSpeed * (delta / 1000);
 
-        if (this.movingBlock.x > width - 200) {
-            this.blockSpeed = -300;
-        } else if (this.movingBlock.x < 200) {
-            this.blockSpeed = 300;
+        const halfBlockWidth = this.movingBlock.displayWidth / 2;
+        const minX = this.movementMargin + halfBlockWidth;
+        const maxX = width - this.movementMargin - halfBlockWidth;
+
+        if (this.movingBlock.x > maxX) {
+            this.blockSpeed = -this.baseSpeed;
+        } else if (this.movingBlock.x < minX) {
+            this.blockSpeed = this.baseSpeed;
         }
     }
 }
