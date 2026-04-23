@@ -15,7 +15,7 @@ export default class gameScene extends Phaser.Scene {
         this.placedBlocks = 0;
         this.speedUpEvery = 5;
         this.speedUpAt = this.speedUpEvery;
-        this.isBlockMoving = true;
+        this.isBlockMoving = false;
         this.stackBlocks = [];
         this.blockScale = 1;
         this.blockSpacing = 0;
@@ -27,6 +27,10 @@ export default class gameScene extends Phaser.Scene {
         this.movementMargin = 250;
         this.score = 0;
         this.scoreText = null;
+        this.movingBlock = null;
+        this.startOverlay = null;
+        this.startButton = null;
+        this.startLabel = null;
     }
 
     preload() {
@@ -34,32 +38,22 @@ export default class gameScene extends Phaser.Scene {
     }
 
     create() {
-        this.gameStarted = true;
+        this.gameStarted = false;
 
         this.add.image(centerX, centerY, "gameBG").setDisplaySize(width, height);
-
-        /* const blockTexture = this.textures.get("block").getSourceImage();
-
-        this.baseBlockWidth = blockTexture.width;
-        this.blockHeight = blockTexture.height; */
-
-        const baseBlock = this.createBlock(centerX, height - 100, this.baseBlockWidth);
-           
-        this.blockSpacing = this.blockHeight;
-        this.stackBlocks.push(baseBlock);
-
-        this.spawnMovingBlock();
         this.scoreText = this.add.text(40, 40, "Score: 0", {
             fontSize: "36px",
             color: "#ffffff",
-        }).setDepth(10);
+        }).setDepth(10).setVisible(false);
 
         this.input.on("pointerdown", this.stopMovingBlock, this);
         this.input.keyboard.on("keydown-SPACE", this.stopMovingBlock, this);
+
+        this.StartButton();
     }
 
     stopMovingBlock() {
-        if (!this.isBlockMoving || !this.movingBlock) {
+        if (!this.gameStarted || !this.isBlockMoving || !this.movingBlock) {
             return;
         }
 
@@ -102,6 +96,67 @@ export default class gameScene extends Phaser.Scene {
 
         this.blockSpeed = this.baseSpeed * moveDirection;
         this.isBlockMoving = true;
+    }
+
+    StartButton() {
+        this.startOverlay = this.add.rectangle(centerX, centerY, width, height, 0x000000, 0.35)
+            .setDepth(20);
+
+        this.startButton = this.add.rectangle(centerX, centerY, 260, 90, 0x2ecc71)
+            .setStrokeStyle(3, 0x1f7f48, 1)
+            .setDepth(21)
+            .setInteractive({ useHandCursor: true });
+
+        this.startLabel = this.add.text(centerX, centerY, "START", {
+            fontSize: "36px",
+            color: "#ffffff",
+            fontStyle: "bold",
+        }).setOrigin(0.5).setDepth(22);
+
+        this.startButton.on("pointerover", () => {
+            this.startButton.setFillStyle(0x34d47b);
+        });
+
+        this.startButton.on("pointerout", () => {
+            this.startButton.setFillStyle(0x2ecc71);
+        });
+
+        this.startButton.on("pointerup", () => {
+            this.startGame();
+        });
+    }
+
+    startGame() {
+        this.gameStarted = true;
+        this.isBlockMoving = true;
+        this.blockSpeed = this.baseSpeed;
+        this.blockSpacing = this.blockHeight;
+
+        if (this.stackBlocks.length === 0) {
+            const baseBlock = this.createBlock(centerX, height - 100, this.baseBlockWidth);
+
+            this.stackBlocks.push(baseBlock);
+            this.spawnMovingBlock();
+        }
+
+        if (this.scoreText) {
+            this.scoreText.setVisible(true);
+        }
+
+        if (this.startOverlay) {
+            this.startOverlay.destroy();
+            this.startOverlay = null;
+        }
+
+        if (this.startButton) {
+            this.startButton.destroy();
+            this.startButton = null;
+        }
+
+        if (this.startLabel) {
+            this.startLabel.destroy();
+            this.startLabel = null;
+        }
     }
 
     createBlock(x, y, blockWidth) {
