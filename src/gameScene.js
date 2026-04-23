@@ -17,7 +17,6 @@ export default class gameScene extends Phaser.Scene {
         this.speedUpAt = this.speedUpEvery;
         this.isBlockMoving = false;
         this.stackBlocks = [];
-        this.blockScale = 1;
         this.blockSpacing = 0;
         this.baseBlockWidth = 300;
         this.blockHeight = 60;
@@ -49,7 +48,7 @@ export default class gameScene extends Phaser.Scene {
         this.input.on("pointerdown", this.stopMovingBlock, this);
         this.input.keyboard.on("keydown-SPACE", this.stopMovingBlock, this);
 
-        this.StartButton();
+        this.createStartButton();
     }
 
     stopMovingBlock() {
@@ -98,7 +97,7 @@ export default class gameScene extends Phaser.Scene {
         this.isBlockMoving = true;
     }
 
-    StartButton() {
+    createStartButton() {
         this.startOverlay = this.add.rectangle(centerX, centerY, width, height, 0x000000, 0.35)
             .setDepth(20);
 
